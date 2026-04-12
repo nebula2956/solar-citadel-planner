@@ -36,10 +36,20 @@ interface GridStore extends HistoryEntry {
   getPresentState: () => GridState
 }
 
+// 太陽城初期位置: x=597,y=597 → col=613-597=16, row=613-597=16
+// 右下アンカー(col+5,row+5)=(16,16) → anchorCol=11, anchorRow=11
+const DEFAULT_SOLAR_CITADEL: Placement = {
+  id: 'solar-citadel-default',
+  type: 'solar_citadel',
+  col: 11,
+  row: 11,
+  teamId: '',
+}
+
 const defaultGridState = (): GridState => ({
   gridWidth: DEFAULT_GRID_WIDTH,
   gridHeight: DEFAULT_GRID_HEIGHT,
-  placements: [],
+  placements: [DEFAULT_SOLAR_CITADEL],
   teams: DEFAULT_TEAMS,
 })
 

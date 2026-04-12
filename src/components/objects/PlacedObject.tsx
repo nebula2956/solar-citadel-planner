@@ -101,7 +101,7 @@ export function PlacedObject({ placement, originX }: Props) {
               />
             </svg>
           )}
-          {/* 画像：BBサイズにぴったり合わせる */}
+          {/* 画像：BBサイズにぴったり合わせ、菱形クリップ */}
           <img
             src={`/${placement.type === 'solar_citadel' ? 'solar_citadel' : 'cannon'}.png`}
             alt={def.label}
@@ -111,6 +111,7 @@ export function PlacedObject({ placement, originX }: Props) {
               left: 0,
               width: bbWidth,
               height: bbHeight,
+              clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
               pointerEvents: 'none',
               userSelect: 'none',
             }}
@@ -152,11 +153,6 @@ export function PlacedObject({ placement, originX }: Props) {
           paddingTop: useImage ? bbHeight * 0.55 : 0,
         }}
       >
-        {!useImage && (
-          <span style={{ fontSize: span >= 4 ? 22 : 16, lineHeight: 1 }}>
-            {def.emoji}
-          </span>
-        )}
         <span style={{
           fontSize: useImage ? 9 : (span >= 4 ? 12 : 10),
           color: '#fff',
@@ -190,7 +186,7 @@ export function PlacedObject({ placement, originX }: Props) {
             textShadow: '0 1px 2px rgba(0,0,0,0.9)',
             fontFamily: 'monospace',
           }}>
-            {gameX},{gameY}
+            x{gameX},y{gameY}
           </span>
         )}
       </div>
