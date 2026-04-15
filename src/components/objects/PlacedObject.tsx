@@ -1,38 +1,31 @@
-import { useDraggable } from '@dnd-kit/core'
 import type { Placement } from '../../types'
 import { OBJECT_DEFINITIONS } from '../../constants/objectDefinitions'
 import { useUIStore } from '../../store/useUIStore'
 import { useGridStore } from '../../store/useGridStore'
-import { toIso, toGameCoord, TILE_W, TILE_H } from '../../utils/gameCoords'
+import { toIso, toGameCoordFromState, TILE_W, TILE_H } from '../../utils/gameCoords'
 
 interface Props {
   placement: Placement
   originX: number
+  isDragging: boolean
+  onPointerDown: (e: React.PointerEvent) => void
 }
 
-export function PlacedObject({ placement, originX }: Props) {
-  const { activeTool, selectedPlacementId, setSelectedPlacementId } = useUIStore()
-  const { removePlacement } = useGridStore()
-  const teams = useGridStore(s => s.present.teams)
+export function PlacedObject({ placement, originX, isDragging, onPointerDown }: Props) {
+  const { setPopup, popup } = useUIStore()
+  const present = useGridStore(s => s.present)
   const def = OBJECT_DEFINITIONS[placement.type]
-  const team = teams.find(t => t.id === placement.teamId)
-  const isSelected = selectedPlacementId === placement.id
+  const team = present.teams.find(t => t.id === placement.teamId)
   const span = def.cellSpan
 
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: placement.id,
-    disabled: activeTool !== 'select',
-  })
+  const isSelected = popup?.type === 'placement' && popup.placementId === placement.id
 
   // バウンディングボックス計算
-  // top-left cell: (col, row)、bottom-right cell: (col+span-1, row+span-1)
   const { sx: sxTL, sy: syTL } = toIso(placement.col, placement.row)
   const { sy: syBR } = toIso(placement.col + span - 1, placement.row + span - 1)
-
   const topX = originX + sxTL + TILE_W / 2
   const topY = syTL
   const bottomY = syBR + TILE_H
-
   const { sx: sxBL } = toIso(placement.col, placement.row + span - 1)
   const leftX = originX + sxBL
   const { sx: sxTR } = toIso(placement.col + span - 1, placement.row)
@@ -43,7 +36,6 @@ export function PlacedObject({ placement, originX }: Props) {
   const bbWidth = rightX - leftX
   const bbHeight = bottomY - topY
 
-  // ひし形ポリゴン頂点（BB相対）
   const polyPoints = [
     `${topX - bbLeft},${topY - bbTop}`,
     `${rightX - bbLeft},${topY + bbHeight / 2 - bbTop}`,
@@ -53,24 +45,19 @@ export function PlacedObject({ placement, originX }: Props) {
 
   const color = team?.color ?? def.bgColor
   const useImage = placement.type === 'solar_citadel' || placement.type === 'cannon'
-  // 都市の座標：右下セル(col+span-1, row+span-1)のゲーム座標
-  const { x: gameX, y: gameY } = toGameCoord(placement.col + span - 1, placement.row + span - 1)
+  const { x: gameX, y: gameY } = toGameCoordFromState(placement.col + span - 1, placement.row + span - 1, present)
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (activeTool === 'delete') {
-      removePlacement(placement.id)
-    } else if (activeTool === 'select') {
-      setSelectedPlacementId(isSelected ? null : placement.id)
-    }
+    if (isDragging) return
+    setPopup({ type: 'placement', placementId: placement.id, screenX: e.clientX, screenY: e.clientY })
   }
 
   return (
     <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
+      onPointerDown={onPointerDown}
       onClick={handleClick}
+      data-placed-object="true"
       style={{
         position: 'absolute',
         left: bbLeft,
@@ -78,47 +65,50 @@ export function PlacedObject({ placement, originX }: Props) {
         width: bbWidth,
         height: bbHeight,
         opacity: isDragging ? 0.35 : 1,
-        cursor: activeTool === 'select' ? 'grab' : activeTool === 'delete' ? 'pointer' : 'default',
+        cursor: isDragging ? 'grabbing' : 'pointer',
         zIndex: isSelected ? 20 : 5,
         pointerEvents: 'auto',
+        touchAction: 'none',
+        userSelect: 'none',
       }}
     >
+      {/* 選択時のグロー */}
+      {isSelected && (
+        <svg
+          style={{ position: 'absolute', top: 0, left: 0, width: bbWidth, height: bbHeight, overflow: 'visible', pointerEvents: 'none' }}
+          viewBox={`0 0 ${bbWidth} ${bbHeight}`}
+        >
+          <polygon
+            points={polyPoints}
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth={3}
+            filter="drop-shadow(0 0 10px rgba(255,255,255,0.9)) drop-shadow(0 0 20px rgba(255,255,255,0.5))"
+          />
+        </svg>
+      )}
+
       {useImage ? (
-        /* 太陽城・砲台：実際の画像で表示 */
         <>
-          {/* 選択時のハイライトリング（SVG） */}
-          {isSelected && (
-            <svg
-              style={{ position: 'absolute', top: 0, left: 0, width: bbWidth, height: bbHeight, overflow: 'visible', pointerEvents: 'none' }}
-              viewBox={`0 0 ${bbWidth} ${bbHeight}`}
-            >
-              <polygon
-                points={polyPoints}
-                fill="none"
-                stroke="#ffffff"
-                strokeWidth={3}
-                filter="drop-shadow(0 0 8px rgba(255,255,255,0.8))"
-              />
-            </svg>
-          )}
-          {/* 画像：BBサイズにぴったり合わせ、菱形クリップ */}
+          <svg
+            style={{ position: 'absolute', top: 0, left: 0, width: bbWidth, height: bbHeight, overflow: 'visible', pointerEvents: 'none' }}
+            viewBox={`0 0 ${bbWidth} ${bbHeight}`}
+          >
+            <polygon points={polyPoints} fill="#0a0f1e" />
+          </svg>
           <img
             src={`/${placement.type === 'solar_citadel' ? 'solar_citadel' : 'cannon'}.png`}
             alt={def.label}
+            draggable={false}
             style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: bbWidth,
-              height: bbHeight,
+              position: 'absolute', top: 0, left: 0,
+              width: bbWidth, height: bbHeight,
               clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
-              pointerEvents: 'none',
-              userSelect: 'none',
+              pointerEvents: 'none', userSelect: 'none',
             }}
           />
         </>
       ) : (
-        /* 都市：チームカラーのひし形 */
         <svg
           viewBox={`0 0 ${bbWidth} ${bbHeight}`}
           style={{ position: 'absolute', top: 0, left: 0, width: bbWidth, height: bbHeight, overflow: 'visible' }}
@@ -128,64 +118,40 @@ export function PlacedObject({ placement, originX }: Props) {
             fill={color}
             opacity={0.88}
             stroke={isSelected ? '#ffffff' : color}
-            strokeWidth={isSelected ? 3 : 1.5}
-            filter={isSelected ? 'drop-shadow(0 0 6px rgba(255,255,255,0.6))' : undefined}
+            strokeWidth={isSelected ? 2 : 1.5}
           />
         </svg>
       )}
 
-      {/* テキストラベル（都市のみ、または画像の上に重ねる） */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: bbWidth,
-          height: bbHeight,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          pointerEvents: 'none',
-          userSelect: 'none',
-          gap: 1,
-          // 太陽城・砲台は画像の上にラベルのみ（絵文字なし）
-          paddingTop: useImage ? bbHeight * 0.55 : 0,
-        }}
-      >
+      {/* テキストラベル */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0,
+        width: bbWidth, height: bbHeight,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        pointerEvents: 'none', userSelect: 'none', gap: 1,
+        paddingTop: useImage ? bbHeight * 0.55 : 0,
+      }}>
         <span style={{
           fontSize: useImage ? 9 : (span >= 4 ? 12 : 10),
-          color: '#fff',
-          fontWeight: 700,
+          color: '#fff', fontWeight: 700,
           textShadow: '0 1px 3px rgba(0,0,0,0.95)',
           textAlign: 'center',
           maxWidth: bbWidth * 0.8,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           background: useImage ? 'rgba(0,0,0,0.45)' : 'transparent',
           padding: useImage ? '1px 4px' : '0',
           borderRadius: useImage ? 3 : 0,
         }}>
-          {placement.label ?? def.label}
+          {placement.label || def.label}
         </span>
-        {/* 都市のみチーム名・座標表示 */}
         {!useImage && team && (
-          <span style={{
-            fontSize: 8,
-            color: 'rgba(255,255,255,0.8)',
-            textShadow: '0 1px 2px rgba(0,0,0,0.9)',
-          }}>
+          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.8)', textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>
             {team.name}
           </span>
         )}
         {!useImage && (
-          <span style={{
-            fontSize: 8,
-            color: 'rgba(255,255,255,0.65)',
-            textShadow: '0 1px 2px rgba(0,0,0,0.9)',
-            fontFamily: 'monospace',
-          }}>
+          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.65)', textShadow: '0 1px 2px rgba(0,0,0,0.9)', fontFamily: 'monospace' }}>
             x{gameX},y{gameY}
           </span>
         )}

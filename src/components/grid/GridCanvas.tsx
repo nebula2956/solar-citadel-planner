@@ -5,12 +5,12 @@ import { TILE_W, TILE_H } from '../../utils/gameCoords'
 import { GridBoard } from './GridBoard'
 import { useGridStore } from '../../store/useGridStore'
 
+
 export function GridCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const { zoom, panX, panY, setZoom, setPan, activeTool } = useUIStore()
+  const { zoom, panX, panY, setZoom, setPan, activeTool, isDraggingObject, isPendingDrag } = useUIStore()
   const { gridWidth, gridHeight } = useGridStore(s => s.present)
 
-  // アイソメトリックグリッドのバウンディングボックス
   const isoWidth = (gridWidth + gridHeight) * (TILE_W / 2)
   const isoHeight = (gridWidth + gridHeight) * (TILE_H / 2)
 
@@ -18,6 +18,18 @@ export function GridCanvas() {
   const panStart = useRef({ x: 0, y: 0 })
   const panOrigin = useRef({ x: 0, y: 0 })
   const spaceHeld = useRef(false)
+
+  // 最新の値をrefで保持（イベントリスナーのクロージャ問題回避）
+  const panXRef = useRef(panX)
+  const panYRef = useRef(panY)
+  const zoomRef = useRef(zoom)
+  const isDraggingRef = useRef(isDraggingObject)
+  const isPendingDragRef = useRef(isPendingDrag)
+  useEffect(() => { panXRef.current = panX }, [panX])
+  useEffect(() => { panYRef.current = panY }, [panY])
+  useEffect(() => { zoomRef.current = zoom }, [zoom])
+  useEffect(() => { isDraggingRef.current = isDraggingObject }, [isDraggingObject])
+  useEffect(() => { isPendingDragRef.current = isPendingDrag }, [isPendingDrag])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -44,18 +56,20 @@ export function GridCanvas() {
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
     const delta = e.deltaY < 0 ? 1.1 : 0.9
-    setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * delta)))
-  }, [zoom, setZoom])
+    setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomRef.current * delta)))
+  }, [setZoom])
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
+    // 長押し待機中またはドラッグ中はパン開始しない
+    if (isDraggingRef.current || isPendingDragRef.current) return
     if (e.button === 1 || e.button === 2 || spaceHeld.current || activeTool === 'pan') {
       e.preventDefault()
       isPanning.current = true
       panStart.current = { x: e.clientX, y: e.clientY }
-      panOrigin.current = { x: panX, y: panY }
+      panOrigin.current = { x: panXRef.current, y: panYRef.current }
       if (containerRef.current) containerRef.current.style.cursor = 'grabbing'
     }
-  }, [panX, panY, activeTool])
+  }, [activeTool])
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isPanning.current) return
@@ -73,44 +87,69 @@ export function GridCanvas() {
     }
   }, [activeTool])
 
-  const lastTouchDist = useRef<number | null>(null)
-  const touchPanStart = useRef<{ x: number; y: number } | null>(null)
-  const touchPanOrigin = useRef({ x: 0, y: 0 })
+  // タッチ処理をネイティブイベント({ passive: false })で登録
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
 
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      touchPanStart.current = null
-      const dx = e.touches[0].clientX - e.touches[1].clientX
-      const dy = e.touches[0].clientY - e.touches[1].clientY
-      lastTouchDist.current = Math.hypot(dx, dy)
-    } else if (e.touches.length === 1) {
+    const lastTouchDist = { current: null as number | null }
+    const touchPanStart = { current: null as { x: number; y: number } | null }
+    const touchPanOrigin = { current: { x: 0, y: 0 } }
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        touchPanStart.current = null
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        lastTouchDist.current = Math.hypot(dx, dy)
+      } else if (e.touches.length === 1) {
+        // 長押し待機中またはドラッグ中はパン開始しない
+        if (isDraggingRef.current || isPendingDragRef.current) return
+        lastTouchDist.current = null
+        touchPanStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+        touchPanOrigin.current = { x: panXRef.current, y: panYRef.current }
+      }
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && lastTouchDist.current !== null) {
+        e.preventDefault()
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        const dist = Math.hypot(dx, dy)
+        const ratio = dist / lastTouchDist.current
+        setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomRef.current * ratio)))
+        lastTouchDist.current = dist
+      } else if (e.touches.length === 1 && touchPanStart.current !== null) {
+        // 長押し待機中またはドラッグ中はパンしない
+        if (isDraggingRef.current || isPendingDragRef.current) {
+          e.preventDefault()
+          return
+        }
+        e.preventDefault()
+        const dx = e.touches[0].clientX - touchPanStart.current.x
+        const dy = e.touches[0].clientY - touchPanStart.current.y
+        setPan(touchPanOrigin.current.x + dx, touchPanOrigin.current.y + dy)
+      }
+    }
+
+    const onTouchEnd = () => {
       lastTouchDist.current = null
-      touchPanStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-      touchPanOrigin.current = { x: panX, y: panY }
+      touchPanStart.current = null
     }
-  }, [panX, panY])
 
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2 && lastTouchDist.current !== null) {
-      e.preventDefault()
-      const dx = e.touches[0].clientX - e.touches[1].clientX
-      const dy = e.touches[0].clientY - e.touches[1].clientY
-      const dist = Math.hypot(dx, dy)
-      const ratio = dist / lastTouchDist.current
-      setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * ratio)))
-      lastTouchDist.current = dist
-    } else if (e.touches.length === 1 && touchPanStart.current !== null) {
-      e.preventDefault()
-      const dx = e.touches[0].clientX - touchPanStart.current.x
-      const dy = e.touches[0].clientY - touchPanStart.current.y
-      setPan(touchPanOrigin.current.x + dx, touchPanOrigin.current.y + dy)
+    el.addEventListener('touchstart', onTouchStart, { passive: false })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd)
+    el.addEventListener('touchcancel', onTouchEnd)
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('touchcancel', onTouchEnd)
     }
-  }, [zoom, setZoom, setPan])
-
-  const onTouchEnd = useCallback(() => {
-    lastTouchDist.current = null
-    touchPanStart.current = null
-  }, [])
+  }, [setZoom, setPan])
 
   return (
     <div
@@ -127,12 +166,8 @@ export function GridCanvas() {
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
       onMouseLeave={onMouseUp}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
       onContextMenu={e => e.preventDefault()}
     >
-      {/* ズーム・パン適用ラッパー（アイソメトリックバウンディングボックスサイズ） */}
       <div
         id="iso-grid-board"
         style={{

@@ -4,7 +4,7 @@ import { useUIStore } from '../store/useUIStore'
 
 export function useKeyboardShortcuts() {
   const { undo, redo, removePlacement, canUndo, canRedo } = useGridStore()
-  const { selectedPlacementId, setSelectedPlacementId } = useUIStore()
+  const { selectedPlacementId, setSelectedPlacementId, setPopup } = useUIStore()
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -24,10 +24,11 @@ export function useKeyboardShortcuts() {
         }
       } else if (e.key === 'Escape') {
         setSelectedPlacementId(null)
+        setPopup(null)
       }
     }
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [undo, redo, canUndo, canRedo, removePlacement, selectedPlacementId, setSelectedPlacementId])
+  }, [undo, redo, canUndo, canRedo, removePlacement, selectedPlacementId, setSelectedPlacementId, setPopup])
 }
