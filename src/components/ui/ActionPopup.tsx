@@ -247,8 +247,17 @@ function PlacementPopup({ placementId, style, divRef }: {
                 outline: 'none', boxSizing: 'border-box',
               }}
               onChange={e => setLabelValue(e.target.value)}
-              onBlur={() => updatePlacementLabel(placement.id, labelValue)}
-              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+              onBlur={() => {
+                if (labelValue !== (placement.label ?? '')) {
+                  updatePlacementLabel(placement.id, labelValue)
+                }
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  ;(e.target as HTMLInputElement).blur()
+                }
+              }}
             />
           </div>
         )}

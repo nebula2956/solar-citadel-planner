@@ -133,24 +133,24 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
         paddingTop: useImage ? bbHeight * 0.55 : 0,
       }}>
         <span style={{
-          fontSize: useImage ? 9 : (span >= 4 ? 12 : 10),
+          fontSize: useImage ? 9 : (span >= 4 ? 12 : 9),
           color: '#fff', fontWeight: 700,
           textShadow: '0 1px 3px rgba(0,0,0,0.95)',
           textAlign: 'center',
-          maxWidth: bbWidth * 0.8,
+          maxWidth: Math.max(bbWidth * 0.8, 80),
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          background: useImage ? 'rgba(0,0,0,0.45)' : 'transparent',
-          padding: useImage ? '1px 4px' : '0',
-          borderRadius: useImage ? 3 : 0,
+          background: span === 1 ? 'rgba(0,0,0,0.55)' : (useImage ? 'rgba(0,0,0,0.45)' : 'transparent'),
+          padding: span === 1 ? '1px 4px' : (useImage ? '1px 4px' : '0'),
+          borderRadius: span === 1 ? 3 : (useImage ? 3 : 0),
         }}>
           {placement.label || def.label}
         </span>
-        {!useImage && team && (
+        {!useImage && span > 1 && team && (
           <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.8)', textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>
             {team.name}
           </span>
         )}
-        {!useImage && (
+        {!useImage && span > 1 && (
           <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.65)', textShadow: '0 1px 2px rgba(0,0,0,0.9)', fontFamily: 'monospace' }}>
             x{gameX},y{gameY}
           </span>
