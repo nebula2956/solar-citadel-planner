@@ -88,10 +88,26 @@ export function isAllianceNetworkConnected(
   const rootIndex = nodes.findIndex(p => p.type === 'alliance_hq')
   if (rootIndex === -1) return false
 
-  const areaBuildings = placements.filter(p => p.teamId !== '' && (p.type === 'alliance_hq' || p.type === 'flag'))
+  // 敵チームのエリア矩形が「先置き優先」で所有するセルを壁として収集
+  // 自チームより先に置かれた敵エリアは通路を遮断する
+  const allAreaBuildings = placements.filter(p => p.teamId !== '' && (p.type === 'alliance_hq' || p.type === 'flag'))
+  const enemyAreaCells = new Set<string>()
+  for (const p of allAreaBuildings) {
+    if (p.teamId === teamId) continue
+    const def = defs[p.type]
+    if (!def.areaRadius) continue
+    const area = getAllianceArea(p, def.cellSpan, def.areaRadius)
+    for (let r = area.rowMin; r < area.rowMax; r++) {
+      for (let c = area.colMin; c < area.colMax; c++) {
+        // このセルの「先置き所有者」が敵チームの場合のみ壁
+        const owner = getAreaOwnerAtCell(c, r, allAreaBuildings, defs)
+        if (owner !== null && owner !== teamId) enemyAreaCells.add(`${c},${r}`)
+      }
+    }
+  }
 
   // 全ノードの有効セルを収集し、セル→ノードインデックスのマップを作る
-  // （1セルが複数ノードのエリアに属する場合は両方に記録）
+  // 有効セル = 自チームのノードエリア内 かつ 敵エリアセルでない
   const cellToNodes = new Map<string, Set<number>>()
   for (let ni = 0; ni < nodes.length; ni++) {
     const p = nodes[ni]
@@ -99,12 +115,10 @@ export function isAllianceNetworkConnected(
     const area = getAllianceArea(p, def.cellSpan, def.areaRadius!)
     for (let r = area.rowMin; r < area.rowMax; r++) {
       for (let c = area.colMin; c < area.colMax; c++) {
-        const owner = getAreaOwnerAtCell(c, r, areaBuildings, defs)
-        if (owner === teamId) {
-          const key = `${c},${r}`
-          if (!cellToNodes.has(key)) cellToNodes.set(key, new Set())
-          cellToNodes.get(key)!.add(ni)
-        }
+        const key = `${c},${r}`
+        if (enemyAreaCells.has(key)) continue  // 敵エリアセルは通れない
+        if (!cellToNodes.has(key)) cellToNodes.set(key, new Set())
+        cellToNodes.get(key)!.add(ni)
       }
     }
   }
