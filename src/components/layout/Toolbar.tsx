@@ -108,23 +108,62 @@ export function Toolbar({ onExportPng, onShare, onSave }: Props) {
         display: 'flex',
         alignItems: 'center',
         gap: 6,
-        padding: '6px 12px',
+        padding: '0 12px',
         backgroundColor: '#0f172a',
         borderBottom: '1px solid #1e293b',
         flexWrap: 'wrap',
         userSelect: 'none',
+        minHeight: 56,
       }}>
-        {/* Title */}
-        <span style={{
-          fontFamily: "'Cinzel', serif",
-          fontWeight: 600,
-          fontSize: 14,
-          letterSpacing: '0.06em',
-          color: '#c9a84c',
-          marginRight: 6,
-        }}>
-          海賊星図
-        </span>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 8 }}>
+          <svg width="240" height="66" viewBox="0 0 160 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="globeGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#2563eb"/>
+                <stop offset="100%" stopColor="#1e40af"/>
+              </linearGradient>
+              <linearGradient id="arrowGrad" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0%" stopColor="#3b82f6"/>
+                <stop offset="100%" stopColor="#60a5fa"/>
+              </linearGradient>
+              <linearGradient id="silverGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#e2e8f0"/>
+                <stop offset="50%" stopColor="#94a3b8"/>
+                <stop offset="100%" stopColor="#cbd5e1"/>
+              </linearGradient>
+              <linearGradient id="pinGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#e2e8f0"/>
+                <stop offset="100%" stopColor="#94a3b8"/>
+              </linearGradient>
+            </defs>
+
+            {/* Globe circle */}
+            <circle cx="22" cy="24" r="14" stroke="url(#globeGrad)" strokeWidth="2" fill="none"/>
+            {/* Globe horizontal lines */}
+            <ellipse cx="22" cy="24" rx="7" ry="14" stroke="url(#globeGrad)" strokeWidth="1.5" fill="none"/>
+            <line x1="8" y1="24" x2="36" y2="24" stroke="url(#globeGrad)" strokeWidth="1.5"/>
+            <line x1="10" y1="17" x2="34" y2="17" stroke="url(#globeGrad)" strokeWidth="1.2"/>
+            <line x1="10" y1="31" x2="34" y2="31" stroke="url(#globeGrad)" strokeWidth="1.2"/>
+
+            {/* Arrow + wave */}
+            <polyline points="10,34 16,28 21,31 30,20 36,20" stroke="url(#arrowGrad)" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+            <polygon points="34,16 38,21 33,21" fill="url(#arrowGrad)"/>
+
+            {/* Pin */}
+            <path d="M26 4 C26 4 20 9 20 13 C20 16.3 22.7 19 26 19 C29.3 19 32 16.3 32 13 C32 9 26 4 26 4Z" fill="url(#pinGrad)"/>
+            <circle cx="26" cy="13" r="3" fill="#0f172a"/>
+
+            {/* WOS */}
+            <text x="46" y="26" fontFamily="'Arial Black', sans-serif" fontWeight="900" fontSize="22" fill="url(#silverGrad)" letterSpacing="1">WOS</text>
+            {/* MAP planner */}
+            <text x="47" y="40" fontFamily="Arial, sans-serif" fontWeight="700" fontSize="11" fill="#3b82f6" letterSpacing="0.5">MAP</text>
+            <text x="75" y="40" fontFamily="Arial, sans-serif" fontWeight="400" fontSize="11" fill="#94a3b8" letterSpacing="0.5"> planner</text>
+          </svg>
+          <span style={{ fontSize: 10, color: '#334155', fontWeight: 500, letterSpacing: '0.05em' }}>
+            v{__APP_VERSION__}
+          </span>
+        </div>
 
         {/* Mode switcher */}
         <div style={{ display: 'flex', border: '1px solid #334155', borderRadius: 6, overflow: 'hidden', marginRight: 4 }}>
