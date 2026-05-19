@@ -3,14 +3,20 @@ import { Toolbar } from './Toolbar'
 import { Sidebar, BottomPanel } from './Sidebar'
 import { GridCanvas } from '../grid/GridCanvas'
 import { ShareModal } from '../ui/ShareModal'
+import { SaveSlotsModal } from '../ui/SaveSlotsModal'
+import { AutoPlaceModal } from '../ui/AutoPlaceModal'
 import { ActionPopup } from '../ui/ActionPopup'
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
 import { useShareURL } from '../../hooks/useShareURL'
 import { useExport } from '../../hooks/useExport'
+import { isURLTooLong } from '../../utils/serialization'
+import { useUIStore } from '../../store/useUIStore'
 
 export function AppShell() {
-  const [shareURL, setShareURL] = useState<string | null>(null)
+  const [shareInfo, setShareInfo] = useState<{ url: string; tooLong: boolean } | null>(null)
+  const [showSaveSlots, setShowSaveSlots] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  const { pendingAutoPlaceRect, setPendingAutoPlaceRect } = useUIStore()
 
   useKeyboardShortcuts()
   const { generateShareURL } = useShareURL()
@@ -23,22 +29,26 @@ export function AppShell() {
   }, [])
 
   const handleShare = () => {
-    const url = generateShareURL()
-    setShareURL(url)
+    const { url, encoded } = generateShareURL()
     window.history.replaceState(null, '', url)
+    setShareInfo({ url, tooLong: isURLTooLong(encoded) })
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-      <Toolbar onExportPng={exportPng} onShare={handleShare} />
+      <Toolbar onExportPng={exportPng} onShare={handleShare} onSave={() => setShowSaveSlots(true)} />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <GridCanvas />
         {!isMobile && <Sidebar />}
       </div>
       {isMobile && <BottomPanel />}
       <ActionPopup />
-      {shareURL && (
-        <ShareModal url={shareURL} onClose={() => setShareURL(null)} />
+      {shareInfo && (
+        <ShareModal url={shareInfo.url} tooLong={shareInfo.tooLong} onClose={() => setShareInfo(null)} />
+      )}
+      {showSaveSlots && <SaveSlotsModal onClose={() => setShowSaveSlots(false)} />}
+      {pendingAutoPlaceRect && (
+        <AutoPlaceModal rect={pendingAutoPlaceRect} onClose={() => setPendingAutoPlaceRect(null)} />
       )}
     </div>
   )

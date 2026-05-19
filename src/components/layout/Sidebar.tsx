@@ -15,7 +15,7 @@ function CountsPanel() {
 
   return (
     <>
-      {(['city', 'solar_citadel', 'cannon', 'alliance_hq', 'flag', 'bear_trap'] as const).map(type => {
+      {(['city', 'solar_citadel', 'cannon', 'alliance_hq', 'flag', 'bear_trap', 'fortress'] as const).map(type => {
         const def = OBJECT_DEFINITIONS[type]
         return (
           <div key={type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
@@ -104,6 +104,145 @@ function TeamsPanel() {
   )
 }
 
+const inputStyle: React.CSSProperties = {
+  width: 56,
+  padding: '4px 6px',
+  backgroundColor: '#1e293b',
+  border: '1px solid #334155',
+  borderRadius: 4,
+  color: '#f8fafc',
+  fontSize: 12,
+  textAlign: 'right',
+}
+
+function MarchSettingsPanel() {
+  const { marchSettings, setMarchSettings } = useUIStore()
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ color: '#94a3b8', fontSize: 12, width: 90 }}>速度(パッシブ)</span>
+        <input type="number" min={0} max={200} step={1}
+          value={Math.round(marchSettings.passiveBonus * 100)}
+          onChange={e => setMarchSettings({ passiveBonus: Number(e.target.value) / 100 })}
+          style={inputStyle} />
+        <span style={{ color: '#64748b', fontSize: 11 }}>%</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ color: '#94a3b8', fontSize: 12, width: 90 }}>速度(ペット)</span>
+        <input type="number" min={0} max={200} step={1}
+          value={Math.round(marchSettings.petBonus * 100)}
+          onChange={e => setMarchSettings({ petBonus: Number(e.target.value) / 100 })}
+          style={inputStyle} />
+        <span style={{ color: '#64748b', fontSize: 11 }}>%</span>
+      </div>
+    </div>
+  )
+}
+
+function MembersPanel() {
+  const { present, addMember, removeMember, updateMember, assignMembersToCity } = useGridStore()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingField, setEditingField] = useState<'name' | 'score' | null>(null)
+
+  const members = present.members
+
+  const handleAssignAll = () => {
+    for (const t of present.teams) {
+      assignMembersToCity(t.id)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* ヘッダー行 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 56px 72px 20px', gap: 4, paddingBottom: 2, borderBottom: '1px solid #1e293b' }}>
+        <span style={{ color: '#475569', fontSize: 10 }}>名前</span>
+        <span style={{ color: '#475569', fontSize: 10, textAlign: 'right' }}>地底</span>
+        <span style={{ color: '#475569', fontSize: 10 }}>チーム</span>
+        <span />
+      </div>
+
+      {members.length === 0 && (
+        <div style={{ color: '#475569', fontSize: 11, padding: '4px 0' }}>メンバーを追加してください</div>
+      )}
+
+      {members.map(m => (
+        <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '1fr 56px 72px 20px', gap: 4, alignItems: 'center' }}>
+          {/* 名前 */}
+          {editingId === m.id && editingField === 'name' ? (
+            <input
+              autoFocus
+              defaultValue={m.name}
+              style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 3, color: '#f8fafc', fontSize: 11, padding: '2px 4px' }}
+              onBlur={e => { updateMember(m.id, { name: e.target.value }); setEditingId(null); setEditingField(null) }}
+              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            />
+          ) : (
+            <span
+              style={{ color: '#cbd5e1', fontSize: 11, cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              onDoubleClick={() => { setEditingId(m.id); setEditingField('name') }}
+              title={m.name}
+            >{m.name}</span>
+          )}
+
+          {/* スコア */}
+          {editingId === m.id && editingField === 'score' ? (
+            <input
+              autoFocus
+              type="number"
+              defaultValue={m.score}
+              style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 3, color: '#f8fafc', fontSize: 11, padding: '2px 4px', textAlign: 'right' }}
+              onBlur={e => { updateMember(m.id, { score: Number(e.target.value) }); setEditingId(null); setEditingField(null) }}
+              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            />
+          ) : (
+            <span
+              style={{ color: '#94a3b8', fontSize: 11, textAlign: 'right', cursor: 'text', fontFamily: 'monospace' }}
+              onDoubleClick={() => { setEditingId(m.id); setEditingField('score') }}
+            >{m.score.toLocaleString()}</span>
+          )}
+
+          {/* チーム選択 (select) */}
+          <select
+            value={m.teamId}
+            onChange={e => updateMember(m.id, { teamId: e.target.value })}
+            style={{
+              background: '#1e293b', border: '1px solid #334155', borderRadius: 3,
+              color: '#f8fafc', fontSize: 10, padding: '2px 2px', width: '100%',
+            }}
+          >
+            <option value="">未割当</option>
+            {present.teams.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+
+          {/* 削除 */}
+          <button
+            onClick={() => removeMember(m.id)}
+            style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', padding: 0, fontSize: 12, lineHeight: 1 }}
+          >✕</button>
+        </div>
+      ))}
+
+      <button
+        onClick={addMember}
+        style={{ marginTop: 4, padding: '4px', backgroundColor: '#1e293b', border: '1px dashed #334155', borderRadius: 4, color: '#94a3b8', cursor: 'pointer', fontSize: 11 }}
+      >+ メンバーを追加</button>
+
+      {/* 一括割り振りボタン */}
+      <button
+        onClick={handleAssignAll}
+        style={{
+          marginTop: 4, padding: '5px 8px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
+          backgroundColor: '#1e3a5f', border: '1px solid #3b82f6',
+          color: '#93c5fd', fontWeight: 600,
+        }}
+      >都市へ自動割り振り ▶</button>
+    </div>
+  )
+}
+
 function HelpPanel() {
   return (
     <div style={{ fontSize: 11, color: '#475569' }}>
@@ -122,6 +261,9 @@ function HelpPanel() {
 // PCサイドバー
 export function Sidebar() {
   const [countsOpen, setCountsOpen] = useState(true)
+  const [marchOpen, setMarchOpen] = useState(true)
+  const [teamsOpen, setTeamsOpen] = useState(true)
+  const [membersOpen, setMembersOpen] = useState(true)
   const [helpOpen, setHelpOpen] = useState(false)
 
   const sectionTitle = (label: string, open: boolean, toggle: () => void) => (
@@ -148,9 +290,19 @@ export function Sidebar() {
         {countsOpen && <CountsPanel />}
       </div>
 
-      <div style={{ padding: '12px', flex: 1 }}>
-        <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>チーム</div>
-        <TeamsPanel />
+      <div style={{ padding: '12px', borderBottom: '1px solid #1e293b' }}>
+        {sectionTitle('行軍速度', marchOpen, () => setMarchOpen(v => !v))}
+        {marchOpen && <MarchSettingsPanel />}
+      </div>
+
+      <div style={{ padding: '12px', borderBottom: '1px solid #1e293b' }}>
+        {sectionTitle('チーム', teamsOpen, () => setTeamsOpen(v => !v))}
+        {teamsOpen && <TeamsPanel />}
+      </div>
+
+      <div style={{ padding: '12px', flex: 1, borderBottom: '1px solid #1e293b' }}>
+        {sectionTitle('メンバー', membersOpen, () => setMembersOpen(v => !v))}
+        {membersOpen && <MembersPanel />}
       </div>
 
       <div style={{ padding: '12px', borderTop: '1px solid #1e293b' }}>
@@ -162,7 +314,7 @@ export function Sidebar() {
 }
 
 // スマホ用ボトムパネル
-type BottomTab = 'counts' | 'teams' | 'help'
+type BottomTab = 'counts' | 'teams' | 'march' | 'members' | 'help'
 
 export function BottomPanel() {
   const [activeTab, setActiveTab] = useState<BottomTab>('teams')
@@ -195,6 +347,8 @@ export function BottomPanel() {
       <div style={{ display: 'flex', borderBottom: '1px solid #1e293b' }}>
         <button style={tabStyle('counts')} onClick={() => { setActiveTab('counts'); setOpen(true) }}>配置数</button>
         <button style={tabStyle('teams')} onClick={() => { setActiveTab('teams'); setOpen(true) }}>チーム</button>
+        <button style={tabStyle('march')} onClick={() => { setActiveTab('march'); setOpen(true) }}>行軍</button>
+        <button style={tabStyle('members')} onClick={() => { setActiveTab('members'); setOpen(true) }}>メンバー</button>
         <button style={tabStyle('help')} onClick={() => { setActiveTab('help'); setOpen(true) }}>操作</button>
         <button
           style={{ padding: '8px 12px', background: 'transparent', border: 'none', color: '#64748b', fontSize: 14, cursor: 'pointer' }}
@@ -209,6 +363,8 @@ export function BottomPanel() {
         <div style={{ padding: '10px 12px', maxHeight: '35vh', overflowY: 'auto' }}>
           {activeTab === 'counts' && <CountsPanel />}
           {activeTab === 'teams' && <TeamsPanel />}
+          {activeTab === 'march' && <MarchSettingsPanel />}
+          {activeTab === 'members' && <MembersPanel />}
           {activeTab === 'help' && <HelpPanel />}
         </div>
       )}

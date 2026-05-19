@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState, useEffect, useMemo } from 'react'
+import { useRef, useCallback, useState, useEffect, useMemo, memo } from 'react'
 
 import { useGridStore } from '../../store/useGridStore'
 import { useUIStore } from '../../store/useUIStore'
@@ -14,11 +14,25 @@ function getOriginX(gridHeight: number) {
   return gridHeight * (TILE_W / 2)
 }
 
-export function GridBoard() {
+interface GridBoardProps {
+  visibleColMin?: number
+  visibleColMax?: number
+  visibleRowMin?: number
+  visibleRowMax?: number
+}
+
+export function GridBoard({ visibleColMin, visibleColMax, visibleRowMin, visibleRowMax }: GridBoardProps = {}) {
   const boardRef = useRef<HTMLDivElement>(null)
   const { present, movePlacement, getCellMap } = useGridStore()
-  const { setPopup, zoom, setIsDraggingObject, setIsPendingDrag } = useUIStore()
+  const { setPopup, zoom, setIsDraggingObject, setIsPendingDrag, areaSelectRect } = useUIStore()
   const { gridWidth, gridHeight, placements } = present
+
+  // 可視範囲（マージン付き）。指定がなければグリッド全体
+  const MARGIN = 2
+  const vcMin = Math.max(0, (visibleColMin ?? 0) - MARGIN)
+  const vcMax = Math.min(gridWidth, (visibleColMax ?? gridWidth) + MARGIN)
+  const vrMin = Math.max(0, (visibleRowMin ?? 0) - MARGIN)
+  const vrMax = Math.min(gridHeight, (visibleRowMax ?? gridHeight) + MARGIN)
 
   const originX = getOriginX(gridHeight)
   const isoWidth = (gridWidth + gridHeight) * (TILE_W / 2)
@@ -142,6 +156,7 @@ export function GridBoard() {
     setPopup({ type: 'cell', col, row, screenX, screenY })
   }, [setPopup])
 
+
   const cellMap = getCellMap()
 
   const anchorPlacements = placements.filter(p =>
@@ -264,6 +279,96 @@ export function GridBoard() {
     return { span, canPlace, teamId: placement.teamId }
   }, [dragState, placements, gridWidth, gridHeight])
 
+  // グリッドSVGセルをメモ化（可視範囲内のみ描画）
+  const gridCellPolygons = useMemo(() => {
+    const result = []
+    for (let row = vrMin; row < vrMax; row++) {
+      for (let col = vcMin; col < vcMax; col++) {
+        result.push(
+          <polygon
+            key={`grid-${col}-${row}`}
+            points={cellDiamond(col, row)}
+            fill="none"
+            stroke="#1e293b"
+            strokeWidth="0.5"
+          />
+        )
+      }
+    }
+    return result
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vcMin, vcMax, vrMin, vrMax, gridWidth, gridHeight])
+
+  // エリアセルをメモ化
+  const areaCellPolygons = useMemo(() => {
+    const areaBuildings = placements.filter(p => p.teamId !== '' && (p.type === 'alliance_hq' || p.type === 'flag'))
+    if (areaBuildings.length === 0) return null
+    const teamColorMap = new Map<string, string>()
+    for (const t of present.teams) teamColorMap.set(t.id, t.color)
+    const cells: Array<{ col: number; row: number; teamId: string }> = []
+    for (const p of areaBuildings) {
+      const def = OBJECT_DEFINITIONS[p.type]
+      if (def.areaRadius === undefined) continue
+      const area = getAllianceArea(p, def.cellSpan, def.areaRadius)
+      const cColMin = Math.max(0, area.colMin)
+      const cRowMin = Math.max(0, area.rowMin)
+      const cColMax = Math.min(gridWidth, area.colMax)
+      const cRowMax = Math.min(gridHeight, area.rowMax)
+      for (let r = cRowMin; r < cRowMax; r++) {
+        for (let c = cColMin; c < cColMax; c++) {
+          cells.push({ col: c, row: r, teamId: p.teamId })
+        }
+      }
+    }
+    const rendered = new Set<string>()
+    return cells.map(({ col, row }) => {
+      const key = `${col},${row}`
+      if (rendered.has(key)) return null
+      rendered.add(key)
+      const ownerId = getAreaOwnerAtCell(col, row, areaBuildings, OBJECT_DEFINITIONS)
+      if (!ownerId) return null
+      const color = teamColorMap.get(ownerId) ?? '#888'
+      return (
+        <polygon
+          key={`area-cell-${key}`}
+          points={cellDiamond(col, row)}
+          fill={`${color}28`}
+          stroke={`${color}55`}
+          strokeWidth="0.5"
+        />
+      )
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placements, present.teams, gridWidth, gridHeight])
+
+  // エリア外枠をメモ化
+  const areaBorderPolygons = useMemo(() =>
+    placements.filter(p => p.type === 'alliance_hq' || p.type === 'flag').map(p => {
+      const def = OBJECT_DEFINITIONS[p.type]
+      if (def.areaRadius === undefined) return null
+      const area = getAllianceArea(p, def.cellSpan, def.areaRadius)
+      const cColMin = Math.max(0, area.colMin)
+      const cRowMin = Math.max(0, area.rowMin)
+      const cColMax = Math.min(gridWidth, area.colMax)
+      const cRowMax = Math.min(gridHeight, area.rowMax)
+      if (cColMax <= cColMin || cRowMax <= cRowMin) return null
+      const pts = zonePoly(cColMin, cRowMin, cColMax, cRowMax)
+      const team = present.teams.find(t => t.id === p.teamId)
+      const color = team?.color ?? def.bgColor
+      return (
+        <polygon
+          key={`area-border-${p.id}`}
+          points={pts}
+          fill="none"
+          stroke={`${color}99`}
+          strokeWidth="1.5"
+          strokeDasharray="5,3"
+        />
+      )
+    }),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [placements, present.teams, gridWidth, gridHeight])
+
   return (
     <div
       ref={boardRef}
@@ -281,17 +386,7 @@ export function GridBoard() {
         viewBox={`0 0 ${isoWidth} ${isoHeight}`}
       >
         {/* グリッドセル */}
-        {Array.from({ length: gridHeight }, (_, row) =>
-          Array.from({ length: gridWidth }, (_, col) => (
-            <polygon
-              key={`grid-${col}-${row}`}
-              points={cellDiamond(col, row)}
-              fill="none"
-              stroke="#1e293b"
-              strokeWidth="0.5"
-            />
-          ))
-        )}
+        {gridCellPolygons}
 
         {/* 排除ゾーン */}
         {exclusionZone && (() => {
@@ -318,7 +413,8 @@ export function GridBoard() {
         })()}
 
         {/* X軸目盛り */}
-        {Array.from({ length: gridHeight }, (_, row) => {
+        {Array.from({ length: vrMax - vrMin }, (_, i) => {
+          const row = vrMin + i
           if (!showTick(row)) return null
           const { sx, sy } = toIso(0, row)
           const tx = originX + sx
@@ -332,7 +428,8 @@ export function GridBoard() {
         })}
 
         {/* Y軸目盛り */}
-        {Array.from({ length: gridWidth }, (_, col) => {
+        {Array.from({ length: vcMax - vcMin }, (_, i) => {
+          const col = vcMin + i
           if (!showTick(col)) return null
           const { sx, sy } = toIso(col, 0)
           const tx = originX + sx + TILE_W / 2
@@ -346,73 +443,10 @@ export function GridBoard() {
         })}
 
         {/* 同盟エリア: セル単位で先置き優先の色を塗る */}
-        {(() => {
-          const areaBuildings = placements.filter(p => p.teamId !== '' && (p.type === 'alliance_hq' || p.type === 'flag'))
-          if (areaBuildings.length === 0) return null
-          // エリアに関わる全セルを収集（clamp to grid）
-          const teamColorMap = new Map<string, string>()
-          for (const t of present.teams) teamColorMap.set(t.id, t.color)
-          // 各エリア建造物のbounding boxを求めて対象セルを列挙
-          const cells: Array<{ col: number; row: number; teamId: string }> = []
-          for (const p of areaBuildings) {
-            const def = OBJECT_DEFINITIONS[p.type]
-            if (def.areaRadius === undefined) continue
-            const area = getAllianceArea(p, def.cellSpan, def.areaRadius)
-            const cColMin = Math.max(0, area.colMin)
-            const cRowMin = Math.max(0, area.rowMin)
-            const cColMax = Math.min(gridWidth, area.colMax)
-            const cRowMax = Math.min(gridHeight, area.rowMax)
-            for (let r = cRowMin; r < cRowMax; r++) {
-              for (let c = cColMin; c < cColMax; c++) {
-                cells.push({ col: c, row: r, teamId: p.teamId })
-              }
-            }
-          }
-          // 重複を除いて先置き優先（getAreaOwnerAtCell が先置き優先）
-          const rendered = new Set<string>()
-          return cells.map(({ col, row }) => {
-            const key = `${col},${row}`
-            if (rendered.has(key)) return null
-            rendered.add(key)
-            const ownerId = getAreaOwnerAtCell(col, row, areaBuildings, OBJECT_DEFINITIONS)
-            if (!ownerId) return null
-            const color = teamColorMap.get(ownerId) ?? '#888'
-            return (
-              <polygon
-                key={`area-cell-${key}`}
-                points={cellDiamond(col, row)}
-                fill={`${color}28`}
-                stroke={`${color}55`}
-                strokeWidth="0.5"
-              />
-            )
-          })
-        })()}
+        {areaCellPolygons}
 
         {/* 同盟本部・旗エリアの外枠 */}
-        {placements.filter(p => p.type === 'alliance_hq' || p.type === 'flag').map(p => {
-          const def = OBJECT_DEFINITIONS[p.type]
-          if (def.areaRadius === undefined) return null
-          const area = getAllianceArea(p, def.cellSpan, def.areaRadius)
-          const cColMin = Math.max(0, area.colMin)
-          const cRowMin = Math.max(0, area.rowMin)
-          const cColMax = Math.min(gridWidth, area.colMax)
-          const cRowMax = Math.min(gridHeight, area.rowMax)
-          if (cColMax <= cColMin || cRowMax <= cRowMin) return null
-          const pts = zonePoly(cColMin, cRowMin, cColMax, cRowMax)
-          const team = present.teams.find(t => t.id === p.teamId)
-          const color = team?.color ?? def.bgColor
-          return (
-            <polygon
-              key={`area-border-${p.id}`}
-              points={pts}
-              fill="none"
-              stroke={`${color}99`}
-              strokeWidth="1.5"
-              strokeDasharray="5,3"
-            />
-          )
-        })}
+        {areaBorderPolygons}
 
         {/* ドラッグ中: 移動可否オーバーレイ */}
         {dragPlacementInfo && (() => {
@@ -459,19 +493,40 @@ export function GridBoard() {
             strokeDasharray="6,3"
           />
         )}
+
+        {/* 自動配置: 選択矩形オーバーレイ */}
+        {areaSelectRect && (() => {
+          const { colMin, colMax, rowMin, rowMax } = areaSelectRect
+          const pts = zonePoly(colMin, rowMin, colMax + 1, rowMax + 1)
+          return (
+            <polygon
+              points={pts}
+              fill="rgba(99,102,241,0.2)"
+              stroke="rgba(129,140,248,0.9)"
+              strokeWidth="2"
+              strokeDasharray="8,4"
+            />
+          )
+        })()}
       </svg>
 
-      {Array.from({ length: gridHeight }, (_, row) =>
-        Array.from({ length: gridWidth }, (_, col) => (
-          <GridCell
-            key={cellKey(col, row)}
-            col={col}
-            row={row}
-            originX={originX}
-            onCellClick={(sx, sy) => handleCellClick(col, row, sx, sy)}
-          />
-        ))
-      )}
+      {(() => {
+        const cells = []
+        for (let row = vrMin; row < vrMax; row++) {
+          for (let col = vcMin; col < vcMax; col++) {
+            cells.push(
+              <GridCell
+                key={cellKey(col, row)}
+                col={col}
+                row={row}
+                originX={originX}
+                onCellClick={handleCellClick}
+              />
+            )
+          }
+        }
+        return cells
+      })()}
 
       {anchorPlacements.map(p => (
         <PlacedObject
@@ -490,17 +545,17 @@ interface GridCellProps {
   col: number
   row: number
   originX: number
-  onCellClick: (screenX: number, screenY: number) => void
+  onCellClick: (col: number, row: number, screenX: number, screenY: number) => void
 }
 
-function GridCell({ col, row, originX, onCellClick }: GridCellProps) {
+const GridCell = memo(function GridCell({ col, row, originX, onCellClick }: GridCellProps) {
   const { sx, sy } = toIso(col, row)
   const cellLeft = originX + sx
   const cellTop = sy
 
   return (
     <div
-      onClick={e => { e.stopPropagation(); onCellClick(e.clientX, e.clientY) }}
+      onClick={e => { e.stopPropagation(); onCellClick(col, row, e.clientX, e.clientY) }}
       style={{
         position: 'absolute',
         left: cellLeft,
@@ -514,4 +569,4 @@ function GridCell({ col, row, originX, onCellClick }: GridCellProps) {
       }}
     />
   )
-}
+})

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import type React from 'react'
 import { useGridStore } from '../../store/useGridStore'
 import { useUIStore } from '../../store/useUIStore'
 import { OBJECT_DEFINITIONS } from '../../constants/objectDefinitions'
 import { toGameCoordFromState, getExclusionZone, getAllianceArea, getAreaOwnerAtCell, isAllianceNetworkConnected } from '../../utils/gameCoords'
+import { calcMarchTime, formatMarchTime } from '../../utils/marchTime'
 import type { ObjectType, Placement } from '../../types'
 
 export function ActionPopup() {
@@ -23,12 +25,12 @@ export function ActionPopup() {
 
   if (!popup) return null
 
-  const W = 224
+  const W = 240
   const margin = 8
   const left = popup.screenX + margin + W > window.innerWidth
     ? popup.screenX - W - margin
     : popup.screenX + margin
-  const top = Math.min(popup.screenY + margin, window.innerHeight - 360)
+  const top = Math.min(popup.screenY + margin, window.innerHeight - 400)
 
   const style: React.CSSProperties = {
     position: 'fixed',
@@ -42,6 +44,8 @@ export function ActionPopup() {
     zIndex: 200,
     userSelect: 'none',
     overflow: 'hidden',
+    maxHeight: '80vh',
+    overflowY: 'auto',
   }
 
   if (popup.type === 'cell' && popup.col !== undefined && popup.row !== undefined) {
@@ -121,7 +125,6 @@ function CellPopup({ col, row, style, divRef }: {
       if (!inside) return 'エリア外'
     }
 
-    // teamIdが空（city/cannon/solar_citadel）はエリア制限なし
     const effectiveTeamId = type === 'solar_citadel' ? '' : activeTeamId
     if (effectiveTeamId !== '') {
       const areaBuildings = present.placements.filter(p => p.teamId !== '' && (p.type === 'alliance_hq' || p.type === 'flag'))
@@ -145,7 +148,7 @@ function CellPopup({ col, row, style, divRef }: {
     setPopup(null)
   }
 
-  const objects: ObjectType[] = ['city', 'cannon', 'solar_citadel', 'alliance_hq', 'flag', 'bear_trap']
+  const objects: ObjectType[] = ['city', 'cannon', 'solar_citadel', 'alliance_hq', 'flag', 'bear_trap', 'fortress']
 
   return (
     <div ref={divRef as React.RefObject<HTMLDivElement>} style={style} onPointerDown={e => e.stopPropagation()}>
@@ -199,13 +202,18 @@ function CellPopup({ col, row, style, divRef }: {
   )
 }
 
+const sectionLabel: React.CSSProperties = {
+  color: '#64748b', fontSize: 10, fontWeight: 600,
+  textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6,
+}
+
 function PlacementPopup({ placementId, style, divRef }: {
   placementId: string
   style: React.CSSProperties
   divRef: React.RefObject<HTMLDivElement | null>
 }) {
   const setPopup = useUIStore(s => s.setPopup)
-  const { present, removePlacement, updatePlacementLabel, updatePlacement } = useGridStore()
+  const { present, removePlacement, updatePlacementLabel, updatePlacement, updateTeam } = useGridStore()
   const placement = present.placements.find(p => p.id === placementId)
 
   const [labelValue, setLabelValue] = useState(placement?.label ?? '')
@@ -219,6 +227,7 @@ function PlacementPopup({ placementId, style, divRef }: {
   const team = present.teams.find(t => t.id === placement.teamId)
   const hasLabel = placement.type === 'city' || placement.type === 'alliance_hq' || placement.type === 'flag'
   const hasTeam = placement.type !== 'solar_citadel'
+  const isTargetCandidate = placement.type !== 'city'
 
   return (
     <div ref={divRef as React.RefObject<HTMLDivElement>} style={style} onPointerDown={e => e.stopPropagation()}>
@@ -236,7 +245,7 @@ function PlacementPopup({ placementId, style, divRef }: {
 
         {hasLabel && (
           <div>
-            <div style={{ color: '#64748b', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>名前</div>
+            <div style={sectionLabel}>名前</div>
             <input
               value={labelValue}
               placeholder="名前を入力..."
@@ -264,7 +273,7 @@ function PlacementPopup({ placementId, style, divRef }: {
 
         {hasTeam && (
           <div>
-            <div style={{ color: '#64748b', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>チーム</div>
+            <div style={sectionLabel}>チーム</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               {present.teams.map(t => (
                 <button key={t.id} onClick={() => updatePlacement(placement.id, { teamId: t.id })} style={{
@@ -281,6 +290,36 @@ function PlacementPopup({ placementId, style, divRef }: {
           </div>
         )}
 
+        {isTargetCandidate && (
+          <div>
+            <div style={sectionLabel}>行軍目標に設定</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {present.teams.map(t => {
+                const isTarget = t.marchTargetId === placement.id
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => updateTeam(t.id, { marchTargetId: isTarget ? undefined : placement.id })}
+                    style={{
+                      padding: '4px 8px', borderRadius: 4,
+                      border: `1px solid ${isTarget ? t.color : '#1e293b'}`,
+                      backgroundColor: isTarget ? `${t.color}33` : 'transparent',
+                      color: isTarget ? '#f8fafc' : '#64748b',
+                      fontSize: 11, cursor: 'pointer',
+                    }}
+                  >
+                    {isTarget ? '★' : '☆'} {t.name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {placement.type === 'city' && (
+          <MarchTimeSection sourceCol={placement.col} sourceRow={placement.row} />
+        )}
+
         <button
           onClick={() => { removePlacement(placement.id); setPopup(null) }}
           style={{
@@ -291,6 +330,93 @@ function PlacementPopup({ placementId, style, divRef }: {
         >
           🗑 削除
         </button>
+      </div>
+    </div>
+  )
+}
+
+function MarchTimeSection({ sourceCol, sourceRow }: { sourceCol: number; sourceRow: number }) {
+  const { present } = useGridStore()
+  const { marchSettings } = useUIStore()
+
+  const srcSpan = OBJECT_DEFINITIONS['city'].cellSpan
+  const sourceGameXY = toGameCoordFromState(sourceCol + srcSpan - 1, sourceRow + srcSpan - 1, present)
+
+  // チームごとの目標一覧（marchTargetId が設定されているチームのみ）
+  const teamTargets = present.teams
+    .filter(t => t.marchTargetId)
+    .map(t => {
+      const target = present.placements.find(p => p.id === t.marchTargetId)
+      return target ? { team: t, target } : null
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+
+  if (teamTargets.length === 0) {
+    return (
+      <div>
+        <div style={sectionLabel}>行軍時間</div>
+        <div style={{ color: '#475569', fontSize: 11 }}>建造物をタップして行軍目標を設定してください</div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div style={sectionLabel}>行軍時間</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {teamTargets.map(({ team, target }) => {
+          const def = OBJECT_DEFINITIONS[target.type]
+          const span = def.cellSpan
+          const { x, y } = toGameCoordFromState(target.col + span - 1, target.row + span - 1, present)
+          const label = target.label ? `${target.label} (${def.label})` : def.label
+
+          if (target.type === 'fortress') {
+            return (
+              <div key={team.id} style={{ borderTop: '1px solid #1e293b', paddingTop: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                  <span style={{ color: team.color, fontSize: 11, fontWeight: 600 }}>● {team.name}</span>
+                  <span style={{ color: '#cbd5e1', fontSize: 10 }}>{label}</span>
+                </div>
+                <div style={{ color: '#475569', fontSize: 10 }}>x{x},y{y} — 計算対応予定</div>
+              </div>
+            )
+          }
+
+          const isSC = target.type === 'solar_citadel'
+          const secsNoPet = calcMarchTime(
+            [sourceGameXY.x, sourceGameXY.y], srcSpan,
+            [x, y], span,
+            marchSettings.passiveBonus, 0, isSC
+          )
+          const secsPet = marchSettings.petBonus > 0
+            ? calcMarchTime(
+                [sourceGameXY.x, sourceGameXY.y], srcSpan,
+                [x, y], span,
+                marchSettings.passiveBonus, marchSettings.petBonus, isSC
+              )
+            : null
+
+          return (
+            <div key={team.id} style={{ borderTop: '1px solid #1e293b', paddingTop: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                <span style={{ color: team.color, fontSize: 11, fontWeight: 600 }}>● {team.name}</span>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>{label} x{x},y{y}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <div style={{ flex: 1, backgroundColor: '#1e293b', borderRadius: 4, padding: '4px 6px', textAlign: 'center' }}>
+                  <div style={{ color: '#64748b', fontSize: 9 }}>ペット無</div>
+                  <div style={{ color: '#fbbf24', fontSize: 14, fontWeight: 700 }}>{formatMarchTime(secsNoPet)}</div>
+                </div>
+                {secsPet !== null && (
+                  <div style={{ flex: 1, backgroundColor: '#1e293b', borderRadius: 4, padding: '4px 6px', textAlign: 'center' }}>
+                    <div style={{ color: '#64748b', fontSize: 9 }}>ペット有</div>
+                    <div style={{ color: '#fb923c', fontSize: 14, fontWeight: 700 }}>{formatMarchTime(secsPet)}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

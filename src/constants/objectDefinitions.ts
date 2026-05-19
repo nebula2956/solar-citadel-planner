@@ -56,4 +56,11 @@ export const OBJECT_DEFINITIONS: Record<ObjectType, ObjectDefinition> = {
     borderColor: '#475569',
     emoji: '',
   },
+  fortress: {
+    label: '要塞',
+    cellSpan: 6,
+    bgColor: '#dc2626',
+    borderColor: '#991b1b',
+    emoji: '',
+  },
 }

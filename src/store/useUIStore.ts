@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import type { ObjectType, ToolMode, AppMode } from '../types'
 
+export interface MarchSettings {
+  passiveBonus: number
+  petBonus: number
+}
+
 export interface PopupState {
   type: 'cell' | 'placement'
   col?: number
@@ -8,6 +13,13 @@ export interface PopupState {
   placementId?: string
   screenX: number
   screenY: number
+}
+
+export interface AreaSelectRect {
+  colMin: number
+  colMax: number
+  rowMin: number
+  rowMax: number
 }
 
 interface UIStore {
@@ -22,6 +34,9 @@ interface UIStore {
   popup: PopupState | null
   isDraggingObject: boolean
   isPendingDrag: boolean
+  marchSettings: MarchSettings
+  areaSelectRect: AreaSelectRect | null
+  pendingAutoPlaceRect: AreaSelectRect | null
 
   setAppMode: (mode: AppMode) => void
   setActiveTool: (tool: ToolMode) => void
@@ -34,6 +49,9 @@ interface UIStore {
   setPopup: (popup: PopupState | null) => void
   setIsDraggingObject: (v: boolean) => void
   setIsPendingDrag: (v: boolean) => void
+  setMarchSettings: (s: Partial<MarchSettings>) => void
+  setAreaSelectRect: (rect: AreaSelectRect | null) => void
+  setPendingAutoPlaceRect: (rect: AreaSelectRect | null) => void
 }
 
 export const useUIStore = create<UIStore>((set) => ({
@@ -48,6 +66,9 @@ export const useUIStore = create<UIStore>((set) => ({
   popup: null,
   isDraggingObject: false,
   isPendingDrag: false,
+  marchSettings: { passiveBonus: 0, petBonus: 0 },
+  areaSelectRect: null,
+  pendingAutoPlaceRect: null,
 
   setAppMode: (mode) => set({ appMode: mode }),
   setActiveTool: (tool) => set({ activeTool: tool, selectedPlacementId: null }),
@@ -60,5 +81,8 @@ export const useUIStore = create<UIStore>((set) => ({
   setPopup: (popup) => set({ popup }),
   setIsDraggingObject: (v) => set({ isDraggingObject: v }),
   setIsPendingDrag: (v) => set({ isPendingDrag: v }),
+  setMarchSettings: (s) => set(state => ({ marchSettings: { ...state.marchSettings, ...s } })),
+  setAreaSelectRect: (rect) => set({ areaSelectRect: rect }),
+  setPendingAutoPlaceRect: (rect) => set({ pendingAutoPlaceRect: rect }),
 })
 )

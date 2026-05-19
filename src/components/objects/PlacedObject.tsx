@@ -3,6 +3,7 @@ import { OBJECT_DEFINITIONS } from '../../constants/objectDefinitions'
 import { useUIStore } from '../../store/useUIStore'
 import { useGridStore } from '../../store/useGridStore'
 import { toIso, toGameCoordFromState, TILE_W, TILE_H } from '../../utils/gameCoords'
+import { calcMarchTime } from '../../utils/marchTime'
 
 interface Props {
   placement: Placement
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export function PlacedObject({ placement, originX, isDragging, onPointerDown }: Props) {
-  const { setPopup, popup } = useUIStore()
+  const { setPopup, popup, marchSettings } = useUIStore()
   const present = useGridStore(s => s.present)
   const def = OBJECT_DEFINITIONS[placement.type]
   const team = present.teams.find(t => t.id === placement.teamId)
@@ -46,6 +47,29 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
   const color = team?.color ?? def.bgColor
   const useImage = placement.type === 'solar_citadel' || placement.type === 'cannon'
   const { x: gameX, y: gameY } = toGameCoordFromState(placement.col + span - 1, placement.row + span - 1, present)
+
+  const targetTeams = present.teams.filter(t => t.marchTargetId === placement.id)
+
+  const assignedMember = placement.type === 'city' && placement.assignedMemberId
+    ? present.members.find(m => m.id === placement.assignedMemberId)
+    : undefined
+
+  // 都市の場合: チームの行軍目標への行軍時間（ペット込み）を計算
+  let marchTimeSecs: number | undefined
+  if (placement.type === 'city' && team?.marchTargetId) {
+    const target = present.placements.find(p => p.id === team.marchTargetId)
+    if (target) {
+      const targetDef = OBJECT_DEFINITIONS[target.type]
+      const srcXY = toGameCoordFromState(placement.col + span - 1, placement.row + span - 1, present)
+      const tgtXY = toGameCoordFromState(target.col + targetDef.cellSpan - 1, target.row + targetDef.cellSpan - 1, present)
+      const isSC = target.type === 'solar_citadel'
+      marchTimeSecs = calcMarchTime(
+        [srcXY.x, srcXY.y], span,
+        [tgtXY.x, tgtXY.y], targetDef.cellSpan,
+        marchSettings.passiveBonus, marchSettings.petBonus, isSC
+      )
+    }
+  }
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -132,23 +156,59 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
         pointerEvents: 'none', userSelect: 'none', gap: 1,
         paddingTop: useImage ? bbHeight * 0.55 : 0,
       }}>
-        <span style={{
-          fontSize: useImage ? 9 : (span >= 4 ? 12 : 9),
-          color: '#fff', fontWeight: 700,
-          textShadow: '0 1px 3px rgba(0,0,0,0.95)',
-          textAlign: 'center',
-          maxWidth: Math.max(bbWidth * 1.2, 100),
-          whiteSpace: 'normal',
-          wordBreak: 'break-all',
-          background: span === 1 ? 'rgba(0,0,0,0.55)' : (useImage ? 'rgba(0,0,0,0.45)' : 'transparent'),
-          padding: span === 1 ? '1px 4px' : (useImage ? '1px 4px' : '0'),
-          borderRadius: span === 1 ? 3 : (useImage ? 3 : 0),
-        }}>
-          {placement.label || def.label}
-        </span>
+        {/* 名前ラベル + ★バッジ横並び */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: useImage ? 9 : (span >= 4 ? 12 : 9),
+            color: '#fff', fontWeight: 700,
+            textShadow: '0 1px 3px rgba(0,0,0,0.95)',
+            textAlign: 'center',
+            maxWidth: Math.max(bbWidth * 1.2, 100),
+            whiteSpace: 'normal',
+            wordBreak: 'break-all',
+            background: span === 1 ? 'rgba(0,0,0,0.55)' : (useImage ? 'rgba(0,0,0,0.45)' : 'transparent'),
+            padding: span === 1 ? '1px 4px' : (useImage ? '1px 4px' : '0'),
+            borderRadius: span === 1 ? 3 : (useImage ? 3 : 0),
+          }}>
+            {placement.label || def.label}
+          </span>
+          {targetTeams.map(t => (
+            <span key={t.id} style={{
+              fontSize: 9, lineHeight: 1,
+              background: t.color,
+              color: '#fff',
+              borderRadius: 3,
+              padding: '1px 3px',
+              fontWeight: 700,
+              textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.6)',
+              flexShrink: 0,
+            }}>★</span>
+          ))}
+        </div>
         {!useImage && span > 1 && team && (
           <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.8)', textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>
             {team.name}
+          </span>
+        )}
+        {assignedMember && (
+          <span style={{
+            fontSize: 8, color: '#fde68a', fontWeight: 700,
+            textShadow: '0 1px 2px rgba(0,0,0,0.9)',
+            background: 'rgba(0,0,0,0.5)',
+            padding: '1px 3px', borderRadius: 2,
+          }}>
+            {assignedMember.name}
+          </span>
+        )}
+        {marchTimeSecs !== undefined && (
+          <span style={{
+            fontSize: 8, color: '#86efac',
+            textShadow: '0 1px 2px rgba(0,0,0,0.9)',
+            background: 'rgba(0,0,0,0.5)',
+            padding: '1px 3px', borderRadius: 2, fontFamily: 'monospace',
+          }}>
+            {Math.floor(marchTimeSecs / 60)}:{String(Math.round(marchTimeSecs % 60)).padStart(2, '0')}
           </span>
         )}
         {!useImage && span > 1 && (

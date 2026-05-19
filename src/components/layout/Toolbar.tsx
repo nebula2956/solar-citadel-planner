@@ -6,6 +6,7 @@ import { MIN_ZOOM, MAX_ZOOM } from '../../constants/gridConfig'
 interface Props {
   onExportPng: () => void
   onShare: () => void
+  onSave: () => void
 }
 
 function GridRangeModal({ onClose }: { onClose: () => void }) {
@@ -72,9 +73,9 @@ function GridRangeModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-export function Toolbar({ onExportPng, onShare }: Props) {
+export function Toolbar({ onExportPng, onShare, onSave }: Props) {
   const { undo, redo, canUndo, canRedo, clearAll, resetToSolarCitadelTemplate, resetToFreeMode } = useGridStore()
-  const { zoom, setZoom, resetView, appMode, setAppMode } = useUIStore()
+  const { zoom, setZoom, resetView, appMode, setAppMode, activeTool, setActiveTool } = useUIStore()
   const [showRangeModal, setShowRangeModal] = useState(false)
 
   const btnBase: React.CSSProperties = {
@@ -164,18 +165,33 @@ export function Toolbar({ onExportPng, onShare }: Props) {
         <button style={btnBase} onClick={() => setZoom(Math.min(MAX_ZOOM, zoom * 1.1))}>+</button>
         <button style={btnBase} onClick={resetView} title="ビューリセット">↺</button>
 
-        {appMode === 'free' && (
-          <>
-            <div style={{ width: 1, height: 20, backgroundColor: '#1e293b' }} />
-            <button style={{ ...btnBase, color: '#94a3b8' }} onClick={() => setShowRangeModal(true)}>⊞ 範囲</button>
-          </>
-        )}
+        <>
+          <div style={{ width: 1, height: 20, backgroundColor: '#1e293b' }} />
+          <button style={{ ...btnBase, color: '#94a3b8' }} onClick={() => setShowRangeModal(true)}>⊞ 範囲</button>
+        </>
+
+        <div style={{ width: 1, height: 20, backgroundColor: '#1e293b' }} />
+
+        {/* Auto place */}
+        <button
+          title="範囲を選択して都市を自動配置"
+          onClick={() => setActiveTool(activeTool === 'area_select' ? 'pan' : 'area_select')}
+          style={{
+            ...btnBase,
+            backgroundColor: activeTool === 'area_select' ? '#1e3a5f' : '#1e293b',
+            color: activeTool === 'area_select' ? '#93c5fd' : '#94a3b8',
+            border: activeTool === 'area_select' ? '1px solid #3b82f6' : '1px solid #334155',
+          }}
+        >
+          ⬡ 自動配置
+        </button>
 
         <div style={{ flex: 1 }} />
 
         {/* Actions */}
         <button style={{ ...btnBase, color: '#f87171' }} onClick={() => { if (confirm('全てのオブジェクトを削除しますか？')) clearAll() }}>全削除</button>
         <button style={{ ...btnBase, backgroundColor: '#0f4c81', color: '#7dd3fc' }} onClick={onExportPng}>PNG</button>
+        <button style={{ ...btnBase, backgroundColor: '#1e3a5f', color: '#93c5fd' }} onClick={onSave}>💾</button>
         <button style={{ ...btnBase, backgroundColor: '#14532d', color: '#86efac' }} onClick={onShare}>共有</button>
       </div>
 
