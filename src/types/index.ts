@@ -5,6 +5,7 @@ export interface TeamMember {
   name: string
   score: number   // 地底探検の数値
   teamId: string  // 所属チームID（''=未割り当て）
+  active: boolean // 参加フラグ（falseは不参加）
 }
 
 export interface Team {

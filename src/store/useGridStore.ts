@@ -297,6 +297,7 @@ export const useGridStore = create<GridStore>((set, get) => ({
       name: `メンバー${present.members.length + 1}`,
       score: 0,
       teamId: '',
+      active: true,
     }
     set({ present: { ...present, members: [...present.members, newMember] } })
   },
@@ -327,7 +328,7 @@ export const useGridStore = create<GridStore>((set, get) => ({
     if (cities.length === 0) return
 
     const teamMembers = present.members
-      .filter(m => m.teamId === teamId)
+      .filter(m => m.teamId === teamId && m.active !== false)
       .sort((a, b) => b.score - a.score)  // score 降順
 
     const { marchSettings } = useUIStore.getState()

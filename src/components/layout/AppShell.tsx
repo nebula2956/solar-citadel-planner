@@ -5,6 +5,7 @@ import { GridCanvas } from '../grid/GridCanvas'
 import { ShareModal } from '../ui/ShareModal'
 import { SaveSlotsModal } from '../ui/SaveSlotsModal'
 import { AutoPlaceModal } from '../ui/AutoPlaceModal'
+import { MembersPanelFloat } from '../ui/MembersPanelFloat'
 import { ActionPopup } from '../ui/ActionPopup'
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
 import { useShareURL } from '../../hooks/useShareURL'
@@ -15,6 +16,8 @@ import { useUIStore } from '../../store/useUIStore'
 export function AppShell() {
   const [shareInfo, setShareInfo] = useState<{ url: string; tooLong: boolean } | null>(null)
   const [showSaveSlots, setShowSaveSlots] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [membersOpen, setMembersOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const { pendingAutoPlaceRect, setPendingAutoPlaceRect } = useUIStore()
 
@@ -36,10 +39,19 @@ export function AppShell() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-      <Toolbar onExportPng={exportPng} onShare={handleShare} onSave={() => setShowSaveSlots(true)} />
+      <Toolbar
+        onExportPng={exportPng}
+        onShare={handleShare}
+        onSave={() => setShowSaveSlots(true)}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen(v => !v)}
+        membersOpen={membersOpen}
+        onToggleMembers={() => setMembersOpen(v => !v)}
+      />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <GridCanvas />
-        {!isMobile && <Sidebar />}
+        {!isMobile && sidebarOpen && <Sidebar />}
+        {!isMobile && membersOpen && <MembersPanelFloat onClose={() => setMembersOpen(false)} />}
       </div>
       {isMobile && <BottomPanel />}
       <ActionPopup />

@@ -7,6 +7,10 @@ interface Props {
   onExportPng: () => void
   onShare: () => void
   onSave: () => void
+  sidebarOpen: boolean
+  onToggleSidebar: () => void
+  membersOpen: boolean
+  onToggleMembers: () => void
 }
 
 function GridRangeModal({ onClose }: { onClose: () => void }) {
@@ -73,7 +77,7 @@ function GridRangeModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-export function Toolbar({ onExportPng, onShare, onSave }: Props) {
+export function Toolbar({ onExportPng, onShare, onSave, sidebarOpen, onToggleSidebar, membersOpen, onToggleMembers }: Props) {
   const { undo, redo, canUndo, canRedo, clearAll, resetToSolarCitadelTemplate, resetToFreeMode } = useGridStore()
   const { zoom, setZoom, resetView, appMode, setAppMode, activeTool, setActiveTool } = useUIStore()
   const [showRangeModal, setShowRangeModal] = useState(false)
@@ -232,6 +236,22 @@ export function Toolbar({ onExportPng, onShare, onSave }: Props) {
         <button style={{ ...btnBase, backgroundColor: '#0f4c81', color: '#7dd3fc' }} onClick={onExportPng}>PNG</button>
         <button style={{ ...btnBase, backgroundColor: '#1e3a5f', color: '#93c5fd' }} onClick={onSave}>💾</button>
         <button style={{ ...btnBase, backgroundColor: '#14532d', color: '#86efac' }} onClick={onShare}>共有</button>
+
+        <div style={{ width: 1, height: 20, backgroundColor: '#334155' }} />
+
+        {/* サイドバー開閉 */}
+        <button
+          title="サイドバーを開閉"
+          onClick={onToggleSidebar}
+          style={{ ...btnBase, backgroundColor: sidebarOpen ? '#1e3a5f' : '#1e293b', color: sidebarOpen ? '#93c5fd' : '#94a3b8', border: sidebarOpen ? '1px solid #3b82f6' : '1px solid #334155' }}
+        >≡</button>
+
+        {/* メンバーパネル開閉 */}
+        <button
+          title="メンバーリストを開閉"
+          onClick={onToggleMembers}
+          style={{ ...btnBase, backgroundColor: membersOpen ? '#14532d' : '#1e293b', color: membersOpen ? '#86efac' : '#94a3b8', border: membersOpen ? '1px solid #22c55e' : '1px solid #334155' }}
+        >👥</button>
       </div>
 
       {showRangeModal && <GridRangeModal onClose={() => setShowRangeModal(false)} />}

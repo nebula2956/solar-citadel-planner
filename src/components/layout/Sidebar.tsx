@@ -139,7 +139,7 @@ function MarchSettingsPanel() {
   )
 }
 
-function MembersPanel() {
+export function MembersPanel() {
   const { present, addMember, removeMember, updateMember, assignMembersToCity } = useGridStore()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingField, setEditingField] = useState<'name' | 'score' | null>(null)
@@ -154,8 +154,9 @@ function MembersPanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {/* ヘッダー行 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 56px 72px 20px', gap: 4, paddingBottom: 2, borderBottom: '1px solid #1e293b' }}>
+      {/* ヘッダー行: [参加] [名前] [地底] [チーム] [削除] */}
+      <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr 56px 64px 18px', gap: 4, paddingBottom: 2, borderBottom: '1px solid #1e293b' }}>
+        <span style={{ color: '#475569', fontSize: 10, textAlign: 'center' }}>参</span>
         <span style={{ color: '#475569', fontSize: 10 }}>名前</span>
         <span style={{ color: '#475569', fontSize: 10, textAlign: 'right' }}>地底</span>
         <span style={{ color: '#475569', fontSize: 10 }}>チーム</span>
@@ -167,7 +168,14 @@ function MembersPanel() {
       )}
 
       {members.map(m => (
-        <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '1fr 56px 72px 20px', gap: 4, alignItems: 'center' }}>
+        <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '20px 1fr 56px 64px 18px', gap: 4, alignItems: 'center', opacity: m.active === false ? 0.45 : 1 }}>
+          {/* 参加/不参加トグル */}
+          <button
+            onClick={() => updateMember(m.id, { active: m.active === false ? true : false })}
+            title={m.active === false ? '不参加（クリックで参加に変更）' : '参加（クリックで不参加に変更）'}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1, textAlign: 'center', color: m.active === false ? '#475569' : '#22c55e' }}
+          >{m.active === false ? '✗' : '✓'}</button>
+
           {/* 名前 */}
           {editingId === m.id && editingField === 'name' ? (
             <input
@@ -202,14 +210,11 @@ function MembersPanel() {
             >{m.score.toLocaleString()}</span>
           )}
 
-          {/* チーム選択 (select) */}
+          {/* チーム選択 */}
           <select
             value={m.teamId}
             onChange={e => updateMember(m.id, { teamId: e.target.value })}
-            style={{
-              background: '#1e293b', border: '1px solid #334155', borderRadius: 3,
-              color: '#f8fafc', fontSize: 10, padding: '2px 2px', width: '100%',
-            }}
+            style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 3, color: '#f8fafc', fontSize: 10, padding: '2px 2px', width: '100%' }}
           >
             <option value="">未割当</option>
             {present.teams.map(t => (
@@ -244,16 +249,50 @@ function MembersPanel() {
 }
 
 function HelpPanel() {
+  const section = (title: string) => (
+    <div style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginTop: 10, marginBottom: 3, borderBottom: '1px solid #1e293b', paddingBottom: 2 }}>
+      {title}
+    </div>
+  )
+  const row = (icon: string, label: string, desc: string) => (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 3 }}>
+      <span style={{ fontSize: 12, minWidth: 18 }}>{icon}</span>
+      <span style={{ color: '#94a3b8', fontWeight: 600, minWidth: 72 }}>{label}</span>
+      <span style={{ color: '#475569' }}>{desc}</span>
+    </div>
+  )
   return (
-    <div style={{ fontSize: 11, color: '#475569' }}>
-      <div>✏️ 配置: クリックして配置</div>
-      <div>↕️ 選択: クリック→ドラッグ</div>
-      <div>🗑️ 削除: クリックで削除</div>
-      <div>🖐️ 移動: ドラッグで画面移動</div>
-      <div>🖱️ ホイール: ズーム</div>
-      <div>右クリックドラッグ: パン</div>
-      <div>Ctrl+Z/Y: Undo/Redo</div>
-      <div>Del: 選択中を削除</div>
+    <div style={{ fontSize: 11 }}>
+      {section('マップ操作')}
+      {row('🖐️', 'パン', 'ドラッグ / 右クリックドラッグ')}
+      {row('🖱️', 'ズーム', 'ホイール')}
+      {row('↺', 'ビューリセット', 'ツールバーの ↺ ボタン')}
+
+      {section('建物配置')}
+      {row('✏️', '配置', 'サイドバーで種類を選びクリック')}
+      {row('🏠', '移動', '建物を長押し→ドラッグ')}
+      {row('🗑️', '削除', '建物をタップ→ポップアップで削除')}
+      {row('⬡', '自動配置', 'ツールバー「⬡ 自動配置」→範囲をドラッグ')}
+
+      {section('行軍目標')}
+      {row('★', '目標設定', '建物をタップ→ポップアップで各チームの★を押す')}
+      {row('⏱', '行軍時間', '都市タップで目標までの時間を表示')}
+
+      {section('メンバー管理')}
+      {row('👥', 'パネル開閉', 'ツールバー右端の 👥 ボタン')}
+      {row('✏️', '名前/地底編集', 'ダブルクリックで編集')}
+      {row('✓/✗', '参加切替', '先頭のチェックマークをクリック')}
+      {row('▶', '自動割り振り', 'パネル下部のボタン（行軍時間順）')}
+
+      {section('データ管理')}
+      {row('💾', 'セーブ', 'ツールバーの 💾 → スロットに保存')}
+      {row('🔗', '共有', 'ツールバーの「共有」→ URLをコピー')}
+      {row('🖼', 'PNG出力', 'ツールバーの「PNG」')}
+
+      {section('キーボード')}
+      {row('⌨️', 'Ctrl+Z / Y', 'Undo / Redo')}
+      {row('⌨️', 'Del', '選択中の建物を削除')}
+      {row('⌨️', 'Space+ドラッグ', 'パン')}
     </div>
   )
 }
@@ -263,7 +302,6 @@ export function Sidebar() {
   const [countsOpen, setCountsOpen] = useState(true)
   const [marchOpen, setMarchOpen] = useState(true)
   const [teamsOpen, setTeamsOpen] = useState(true)
-  const [membersOpen, setMembersOpen] = useState(true)
   const [helpOpen, setHelpOpen] = useState(false)
 
   const sectionTitle = (label: string, open: boolean, toggle: () => void) => (
@@ -298,11 +336,6 @@ export function Sidebar() {
       <div style={{ padding: '12px', borderBottom: '1px solid #1e293b' }}>
         {sectionTitle('チーム', teamsOpen, () => setTeamsOpen(v => !v))}
         {teamsOpen && <TeamsPanel />}
-      </div>
-
-      <div style={{ padding: '12px', flex: 1, borderBottom: '1px solid #1e293b' }}>
-        {sectionTitle('メンバー', membersOpen, () => setMembersOpen(v => !v))}
-        {membersOpen && <MembersPanel />}
       </div>
 
       <div style={{ padding: '12px', borderTop: '1px solid #1e293b' }}>
