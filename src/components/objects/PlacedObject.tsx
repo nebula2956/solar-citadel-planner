@@ -155,6 +155,7 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
         alignItems: 'center', justifyContent: 'center',
         pointerEvents: 'none', userSelect: 'none', gap: 0,
         paddingTop: useImage ? bbHeight * 0.55 : 0,
+        overflow: 'visible', zIndex: 10,
       }}>
         {/* 名前ラベル + ★バッジ横並び */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -197,6 +198,7 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
             textShadow: '0 1px 2px rgba(0,0,0,0.9)',
             background: 'rgba(0,0,0,0.5)',
             padding: '0px 2px', borderRadius: 2, fontFamily: 'monospace',
+            marginTop: -1,
           }}>
             {Math.floor(marchTimeSecs / 60)}:{String(Math.round(marchTimeSecs % 60)).padStart(2, '0')}
           </span>
