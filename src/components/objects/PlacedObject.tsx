@@ -170,7 +170,7 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
             padding: span === 1 ? '1px 4px' : (useImage ? '1px 4px' : '0'),
             borderRadius: span === 1 ? 3 : (useImage ? 3 : 0),
           }}>
-            {placement.label || def.label}
+            {placement.label || (assignedMember ? assignedMember.name : def.label)}
           </span>
           {targetTeams.map(t => (
             <span key={t.id} style={{
@@ -189,16 +189,6 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
         {!useImage && span > 1 && team && (
           <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.8)', textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>
             {team.name}
-          </span>
-        )}
-        {assignedMember && (
-          <span style={{
-            fontSize: 8, color: '#fde68a', fontWeight: 700,
-            textShadow: '0 1px 2px rgba(0,0,0,0.9)',
-            background: 'rgba(0,0,0,0.5)',
-            padding: '1px 3px', borderRadius: 2,
-          }}>
-            {assignedMember.name}
           </span>
         )}
         {marchTimeSecs !== undefined && (
