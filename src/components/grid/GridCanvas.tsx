@@ -28,11 +28,13 @@ export function GridCanvas() {
   const zoomRef = useRef(zoom)
   const isDraggingRef = useRef(isDraggingObject)
   const isPendingDragRef = useRef(isPendingDrag)
+  const activeToolRef = useRef(activeTool)
   useEffect(() => { panXRef.current = panX }, [panX])
   useEffect(() => { panYRef.current = panY }, [panY])
   useEffect(() => { zoomRef.current = zoom }, [zoom])
   useEffect(() => { isDraggingRef.current = isDraggingObject }, [isDraggingObject])
   useEffect(() => { isPendingDragRef.current = isPendingDrag }, [isPendingDrag])
+  useEffect(() => { activeToolRef.current = activeTool }, [activeTool])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -159,7 +161,6 @@ export function GridCanvas() {
         const dy = e.touches[0].clientY - e.touches[1].clientY
         lastTouchDist.current = Math.hypot(dx, dy)
       } else if (e.touches.length === 1) {
-        // 長押し待機中またはドラッグ中はパン開始しない
         if (isDraggingRef.current || isPendingDragRef.current) return
         lastTouchDist.current = null
         touchPanStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
@@ -177,7 +178,6 @@ export function GridCanvas() {
         setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomRef.current * ratio)))
         lastTouchDist.current = dist
       } else if (e.touches.length === 1 && touchPanStart.current !== null) {
-        // 長押し待機中またはドラッグ中はパンしない
         if (isDraggingRef.current || isPendingDragRef.current) {
           e.preventDefault()
           return

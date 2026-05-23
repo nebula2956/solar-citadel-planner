@@ -47,6 +47,7 @@ export function AppShell() {
         onToggleSidebar={() => setSidebarOpen(v => !v)}
         membersOpen={membersOpen}
         onToggleMembers={() => setMembersOpen(v => !v)}
+        isMobile={isMobile}
       />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <GridCanvas />
