@@ -195,9 +195,7 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
         {marchTimeSecs !== undefined && (
           <span style={{
             fontSize: 7, lineHeight: 1, color: '#86efac',
-            textShadow: '0 1px 2px rgba(0,0,0,0.9)',
-            background: 'rgba(0,0,0,0.5)',
-            padding: '0px 2px', borderRadius: 2, fontFamily: 'monospace',
+            fontFamily: 'monospace',
             marginTop: -1,
           }}>
             {Math.floor(marchTimeSecs / 60)}:{String(Math.round(marchTimeSecs % 60)).padStart(2, '0')}
