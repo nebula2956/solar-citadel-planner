@@ -153,7 +153,7 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
         width: bbWidth, height: bbHeight,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        pointerEvents: 'none', userSelect: 'none', gap: 1,
+        pointerEvents: 'none', userSelect: 'none', gap: 0,
         paddingTop: useImage ? bbHeight * 0.55 : 0,
       }}>
         {/* 名前ラベル + ★バッジ横並び */}
@@ -193,16 +193,16 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
         )}
         {marchTimeSecs !== undefined && (
           <span style={{
-            fontSize: 8, color: '#86efac',
+            fontSize: 7, lineHeight: 1, color: '#86efac',
             textShadow: '0 1px 2px rgba(0,0,0,0.9)',
             background: 'rgba(0,0,0,0.5)',
-            padding: '1px 3px', borderRadius: 2, fontFamily: 'monospace',
+            padding: '0px 2px', borderRadius: 2, fontFamily: 'monospace',
           }}>
             {Math.floor(marchTimeSecs / 60)}:{String(Math.round(marchTimeSecs % 60)).padStart(2, '0')}
           </span>
         )}
         {!useImage && span > 1 && (
-          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.65)', textShadow: '0 1px 2px rgba(0,0,0,0.9)', fontFamily: 'monospace' }}>
+          <span style={{ fontSize: 7, lineHeight: 1, color: 'rgba(255,255,255,0.65)', textShadow: '0 1px 2px rgba(0,0,0,0.9)', fontFamily: 'monospace' }}>
             x{gameX},y{gameY}
           </span>
         )}
