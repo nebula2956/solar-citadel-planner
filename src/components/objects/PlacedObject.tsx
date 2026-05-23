@@ -188,7 +188,7 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
           ))}
         </div>
         {!useImage && span > 1 && team && (
-          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.8)', textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>
+          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.8)' }}>
             {team.name}
           </span>
         )}
@@ -204,7 +204,7 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
           </span>
         )}
         {!useImage && span > 1 && (
-          <span style={{ fontSize: 7, lineHeight: 1, color: 'rgba(255,255,255,0.65)', textShadow: '0 1px 2px rgba(0,0,0,0.9)', fontFamily: 'monospace' }}>
+          <span style={{ fontSize: 7, lineHeight: 1, color: 'rgba(255,255,255,0.65)', fontFamily: 'monospace' }}>
             x{gameX},y{gameY}
           </span>
         )}
