@@ -10,11 +10,10 @@ import { ActionPopup } from '../ui/ActionPopup'
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
 import { useShareURL } from '../../hooks/useShareURL'
 import { useExport } from '../../hooks/useExport'
-import { isURLTooLong } from '../../utils/serialization'
 import { useUIStore } from '../../store/useUIStore'
 
 export function AppShell() {
-  const [shareInfo, setShareInfo] = useState<{ url: string; tooLong: boolean } | null>(null)
+  const [shareInfo, setShareInfo] = useState<{ url: string; error?: string } | null>(null)
   const [showSaveSlots, setShowSaveSlots] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [membersOpen, setMembersOpen] = useState(false)
@@ -31,10 +30,15 @@ export function AppShell() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  const handleShare = () => {
-    const { url, encoded } = generateShareURL()
-    window.history.replaceState(null, '', url)
-    setShareInfo({ url, tooLong: isURLTooLong(encoded) })
+  const handleShare = async () => {
+    setShareInfo({ url: '' })
+    const result = await generateShareURL()
+    if (result.error) {
+      setShareInfo({ url: '', error: result.error })
+    } else {
+      window.history.replaceState(null, '', result.url)
+      setShareInfo({ url: result.url })
+    }
   }
 
   return (
@@ -57,7 +61,7 @@ export function AppShell() {
       {isMobile && <BottomPanel />}
       <ActionPopup />
       {shareInfo && (
-        <ShareModal url={shareInfo.url} tooLong={shareInfo.tooLong} onClose={() => setShareInfo(null)} />
+        <ShareModal url={shareInfo.url} error={shareInfo.error} onClose={() => setShareInfo(null)} />
       )}
       {showSaveSlots && <SaveSlotsModal onClose={() => setShowSaveSlots(false)} />}
       {pendingAutoPlaceRect && (
