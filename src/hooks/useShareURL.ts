@@ -16,11 +16,18 @@ export function useShareURL() {
 
     const roomId = params.get('room')
     if (roomId) {
-      supabase.from('rooms').select('state').eq('id', roomId).single().then(({ data, error }) => {
-        if (!error && data?.state) {
-          loadState(data.state)
+      ;(async () => {
+        try {
+          const { data, error } = await supabase.from('rooms').select('state').eq('id', roomId).single()
+          if (!error && data?.state) {
+            loadState(data.state)
+          } else if (error) {
+            console.error('共有データの読み込みに失敗しました:', error.message)
+          }
+        } catch (err) {
+          console.error('Supabase接続エラー:', err)
         }
-      })
+      })()
       return
     }
 

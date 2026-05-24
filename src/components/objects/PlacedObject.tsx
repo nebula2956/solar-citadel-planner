@@ -171,7 +171,7 @@ export function PlacedObject({ placement, originX, isDragging, onPointerDown }: 
             padding: span === 1 ? '1px 4px' : (useImage ? '1px 4px' : '0'),
             borderRadius: span === 1 ? 3 : (useImage ? 3 : 0),
           }}>
-            {placement.label || (assignedMember ? assignedMember.name : def.label)}
+            {placement.label || assignedMember?.name || def.label}
           </span>
           {targetTeams.map(t => (
             <span key={t.id} style={{

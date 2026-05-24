@@ -121,7 +121,7 @@ export function SaveSlotsModal({ onClose }: Props) {
     reader.onload = ev => {
       try {
         const parsed = JSON.parse(ev.target?.result as string)
-        if (typeof parsed !== 'object' || !Array.isArray(parsed.placements)) {
+        if (typeof parsed !== 'object' || !Array.isArray(parsed.placements) || !Array.isArray(parsed.teams)) {
           showFeedback('無効なJSONファイルです')
           return
         }
